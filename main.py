@@ -104,15 +104,60 @@ class EyeDisplay:
         self.right_eye_pos = (217 + 375, 240)
         self.left_pupil_pos = list(self.left_eye_pos)
         self.right_pupil_pos = list(self.right_eye_pos)
+        
+        # For smooth movement
+        self.target_left_pos = list(self.left_eye_pos)
+        self.target_right_pos = list(self.right_eye_pos)
+        self.movement_speed = 0.2  # Adjust this to control movement speed (0-1)
+
+    def interpret_gaze(self, left_gaze, right_gaze):
+        """Convert detected gaze into mirrored eye positions"""
+        if left_gaze is None or right_gaze is None:
+            # Return to center position if no gaze detected
+            return (0, 0), (0, 0)
+            
+        # Average the gaze directions from both eyes
+        #Horizontal movement
+        avg_gaze_x = -(left_gaze[0] + right_gaze[0]) / 2  # Negative to mirror the direction
+        #Vertical movement
+        avg_gaze_y = (left_gaze[1] + right_gaze[1]) / 2  # Negative to mirror the direction
+        
+        # Define thresholds for different directions
+        threshold = 0.1
+        
+        # Convert continuous gaze into discrete positions
+        x_direction = 0
+        y_direction = 0
+        
+        if abs(avg_gaze_x) > threshold:
+            x_direction = np.sign(avg_gaze_x)
+        if abs(avg_gaze_y) > threshold:
+            y_direction = np.sign(avg_gaze_y)
+            
+        return (x_direction, y_direction), (x_direction, y_direction)
+
+    def smooth_move(self, current_pos, target_pos):
+        """Smoothly interpolate between current and target position"""
+        return [current_pos[0] + (target_pos[0] - current_pos[0]) * self.movement_speed,
+                current_pos[1] + (target_pos[1] - current_pos[1]) * self.movement_speed]
 
     def update_pupils(self, left_gaze, right_gaze):
-        if left_gaze is not None and right_gaze is not None:
-            # Scale the gaze vectors to our display
-            self.left_pupil_pos[0] = self.left_eye_pos[0] + left_gaze[0] * self.max_pupil_offset
-            self.left_pupil_pos[1] = self.left_eye_pos[1] + left_gaze[1] * self.max_pupil_offset
-            
-            self.right_pupil_pos[0] = self.right_eye_pos[0] + right_gaze[0] * self.max_pupil_offset
-            self.right_pupil_pos[1] = self.right_eye_pos[1] + right_gaze[1] * self.max_pupil_offset
+        # Get mirrored eye positions
+        left_dir, right_dir = self.interpret_gaze(left_gaze, right_gaze)
+        
+        # Calculate target positions
+        self.target_left_pos = [
+            self.left_eye_pos[0] + left_dir[0] * self.max_pupil_offset,
+            self.left_eye_pos[1] + left_dir[1] * self.max_pupil_offset
+        ]
+        self.target_right_pos = [
+            self.right_eye_pos[0] + right_dir[0] * self.max_pupil_offset,
+            self.right_eye_pos[1] + right_dir[1] * self.max_pupil_offset
+        ]
+        
+        # Smoothly move towards target positions
+        self.left_pupil_pos = self.smooth_move(self.left_pupil_pos, self.target_left_pos)
+        self.right_pupil_pos = self.smooth_move(self.right_pupil_pos, self.target_right_pos)
 
     def draw(self):
         self.screen.fill((0, 0, 0))
@@ -157,11 +202,14 @@ def main():
         if results.multi_face_landmarks:
             left_gaze, right_gaze = tracker.get_gaze_direction(frame, results.multi_face_landmarks[0])
             display.update_pupils(left_gaze, right_gaze)
+        else:
+            # Return to center if no face detected
+            display.update_pupils(None, None)
         
         # Draw the display
         display.draw()
         
-        # Show the camera frame (optional, for debugging)
+        # Show the camera feed (optional, for debugging)
         cv2.imshow('Camera Feed', frame)
         
         # Check for quit events
