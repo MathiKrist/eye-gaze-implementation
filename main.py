@@ -3,7 +3,6 @@ import cv2
 import pygame
 import numpy as np
 import time
-from helpers import relative, relativeT
 
 class EyeTracker:
     def __init__(self):
@@ -14,78 +13,45 @@ class EyeTracker:
             min_detection_confidence=0.75,
             min_tracking_confidence=0.75
         )
+
+    def get_gaze_position(self, points, frame_shape):
+        """Calculate the position where the gaze intersects the screen"""
+        # Get both irises
+        left_iris = np.array([[points.landmark[idx].x * frame_shape[1],
+                             points.landmark[idx].y * frame_shape[0]] 
+                             for idx in [469, 470, 471, 472]])
+        right_iris = np.array([[points.landmark[idx].x * frame_shape[1],
+                              points.landmark[idx].y * frame_shape[0]] 
+                              for idx in [474, 475, 476, 477]])
+
+        # Calculate centers of both irises
+        left_center = np.mean(left_iris, axis=0)
+        right_center = np.mean(right_iris, axis=0)
+
+        # Get eye corners for checking if eyes are open
+        left_eye_corners = np.array([[points.landmark[idx].x * frame_shape[1],
+                                    points.landmark[idx].y * frame_shape[0]]
+                                    for idx in [263, 362]])  # Left eye corners
+        right_eye_corners = np.array([[points.landmark[idx].x * frame_shape[1],
+                                     points.landmark[idx].y * frame_shape[0]]
+                                     for idx in [33, 133]])  # Right eye corners
+
+        # Check if eyes are sufficiently open by measuring vertical distance
+        left_eye_height = abs(points.landmark[386].y - points.landmark[374].y)
+        right_eye_height = abs(points.landmark[159].y - points.landmark[145].y)
         
-    def get_gaze_direction(self, frame, points):
-        """Modified gaze function that returns normalized gaze directions instead of drawing"""
-        # [Previous gaze calculation code remains the same until the final drawing section]
-        image_points = np.array([
-            relative(points.landmark[4], frame.shape),
-            relative(points.landmark[152], frame.shape),
-            relative(points.landmark[263], frame.shape),
-            relative(points.landmark[33], frame.shape),
-            relative(points.landmark[287], frame.shape),
-            relative(points.landmark[57], frame.shape)
-        ], dtype="double")
+        # If eyes are too closed, return None
+        if left_eye_height < 0.01 or right_eye_height < 0.01:
+            return None
 
-        image_points1 = np.array([
-            relativeT(points.landmark[4], frame.shape),
-            relativeT(points.landmark[152], frame.shape),
-            relativeT(points.landmark[263], frame.shape),
-            relativeT(points.landmark[33], frame.shape),
-            relativeT(points.landmark[287], frame.shape),
-            relativeT(points.landmark[57], frame.shape)
-        ], dtype="double")
+        # Use average of both iris positions to determine gaze point
+        gaze_point = np.mean([left_center, right_center], axis=0)
+        
+        # Convert to normalized coordinates (0 to 1)
+        gaze_x = gaze_point[0] / frame_shape[1]
+        gaze_y = gaze_point[1] / frame_shape[0]
 
-        model_points = np.array([
-            (0.0, 0.0, 0.0),
-            (0, -63.6, -12.5),
-            (-43.3, 32.7, -26),
-            (43.3, 32.7, -26),
-            (-28.9, -28.9, -24.1),
-            (28.9, -28.9, -24.1)
-        ])
-
-        Eye_ball_center_right = np.array([[-29.05], [32.7], [-39.5]])
-        Eye_ball_center_left = np.array([[29.05], [32.7], [-39.5]])
-
-        focal_length = frame.shape[1]
-        center = (frame.shape[1] / 2, frame.shape[0] / 2)
-        camera_matrix = np.array(
-            [[focal_length, 0, center[0]],
-             [0, focal_length, center[1]],
-             [0, 0, 1]], dtype="double"
-        )
-
-        dist_coeffs = np.zeros((4, 1))
-        (success, rotation_vector, translation_vector) = cv2.solvePnP(model_points, image_points, camera_matrix,
-                                                                    dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
-
-        left_pupil = relative(points.landmark[468], frame.shape)
-        right_pupil = relative(points.landmark[473], frame.shape)
-
-        _, transformation, _ = cv2.estimateAffine3D(image_points1, model_points)
-
-        if transformation is not None:
-            # Calculate gaze directions for both eyes
-            pupil_world_cord_left = transformation @ np.array([[left_pupil[0], left_pupil[1], 0, 1]]).T
-            S_left = Eye_ball_center_left + (pupil_world_cord_left - Eye_ball_center_left) * 10
-            (eye_pupil2D_left, _) = cv2.projectPoints((int(S_left[0]), int(S_left[1]), int(S_left[2])), rotation_vector,
-                                                     translation_vector, camera_matrix, dist_coeffs)
-            (head_pose_left, _) = cv2.projectPoints((int(pupil_world_cord_left[0]), int(pupil_world_cord_left[1]), int(40)),
-                                                   rotation_vector, translation_vector, camera_matrix, dist_coeffs)
-            gaze_left = left_pupil + (eye_pupil2D_left[0][0] - left_pupil) - (head_pose_left[0][0] - left_pupil)
-
-            pupil_world_cord_right = transformation @ np.array([[right_pupil[0], right_pupil[1], 0, 1]]).T
-            S_right = Eye_ball_center_right + (pupil_world_cord_right - Eye_ball_center_right) * 10
-            (eye_pupil2D_right, _) = cv2.projectPoints((int(S_right[0]), int(S_right[1]), int(S_right[2])), rotation_vector,
-                                                      translation_vector, camera_matrix, dist_coeffs)
-            (head_pose_right, _) = cv2.projectPoints((int(pupil_world_cord_right[0]), int(pupil_world_cord_right[1]), int(40)),
-                                                    rotation_vector, translation_vector, camera_matrix, dist_coeffs)
-            gaze_right = right_pupil + (eye_pupil2D_right[0][0] - right_pupil) - (head_pose_right[0][0] - right_pupil)
-
-            # Return normalized gaze directions
-            return (gaze_left - left_pupil) / frame.shape[1], (gaze_right - right_pupil) / frame.shape[1]
-        return None, None
+        return (gaze_x, gaze_y)
 
 class EyeDisplay:
     def __init__(self, width=800, height=480):
@@ -108,52 +74,49 @@ class EyeDisplay:
         # For smooth movement
         self.target_left_pos = list(self.left_eye_pos)
         self.target_right_pos = list(self.right_eye_pos)
-        self.movement_speed = 0.2  # Adjust this to control movement speed (0-1)
+        self.movement_speed = 0.2
 
-    def interpret_gaze(self, left_gaze, right_gaze):
-        """Convert detected gaze into mirrored eye positions"""
-        if left_gaze is None or right_gaze is None:
-            # Return to center position if no gaze detected
-            return (0, 0), (0, 0)
+    def calculate_look_direction(self, gaze_position):
+        """Calculate where eyes should look based on gaze position"""
+        if gaze_position is None:
+            return (0, 0), (0, 0)  # Look straight ahead if no gaze detected
             
-        # Average the gaze directions from both eyes
-        #Horizontal movement
-        avg_gaze_x = -(left_gaze[0] + right_gaze[0]) / 2  # Negative to mirror the direction
-        #Vertical movement
-        avg_gaze_y = (left_gaze[1] + right_gaze[1]) / 2  # Negative to mirror the direction
+        gaze_x, gaze_y = gaze_position
         
-        # Define thresholds for different directions
-        threshold = 0.1
+        # Convert gaze position (0 to 1) to eye movement direction (-1 to 1)
+        # Invert the direction so eyes look towards the gaze point
+        x_direction = -(gaze_x - 0.5) * 2
+        #y_direction = (gaze_y - 0.5) * 2
         
-        # Convert continuous gaze into discrete positions
-        x_direction = 0
-        y_direction = 0
-        
-        if abs(avg_gaze_x) > threshold:
-            x_direction = np.sign(avg_gaze_x)
-        if abs(avg_gaze_y) > threshold:
-            y_direction = np.sign(avg_gaze_y)
-            
-        return (x_direction, y_direction), (x_direction, y_direction)
+        # Apply the same direction to both eyes
+        return (x_direction), (x_direction)
 
     def smooth_move(self, current_pos, target_pos):
         """Smoothly interpolate between current and target position"""
         return [current_pos[0] + (target_pos[0] - current_pos[0]) * self.movement_speed,
                 current_pos[1] + (target_pos[1] - current_pos[1]) * self.movement_speed]
 
-    def update_pupils(self, left_gaze, right_gaze):
-        # Get mirrored eye positions
-        left_dir, right_dir = self.interpret_gaze(left_gaze, right_gaze)
+    def update_pupils(self, gaze_position):
+        # Get eye directions based on gaze position
+        left_dir, right_dir = self.calculate_look_direction(gaze_position)
         
-        # Calculate target positions
-        self.target_left_pos = [
-            self.left_eye_pos[0] + left_dir[0] * self.max_pupil_offset,
-            self.left_eye_pos[1] + left_dir[1] * self.max_pupil_offset
-        ]
-        self.target_right_pos = [
-            self.right_eye_pos[0] + right_dir[0] * self.max_pupil_offset,
-            self.right_eye_pos[1] + right_dir[1] * self.max_pupil_offset
-        ]
+        if gaze_position is None:
+            # Return to center if no gaze detected
+            self.target_left_pos = list(self.left_eye_pos)
+            self.target_right_pos = list(self.right_eye_pos)
+        else:
+            # Calculate target positions
+            left_x, left_y = left_dir
+            right_x, right_y = right_dir
+            
+            self.target_left_pos = [
+                self.left_eye_pos[0] + left_x * self.max_pupil_offset,
+                self.left_eye_pos[1] + left_y * self.max_pupil_offset
+            ]
+            self.target_right_pos = [
+                self.right_eye_pos[0] + right_x * self.max_pupil_offset,
+                self.right_eye_pos[1] + right_y * self.max_pupil_offset
+            ]
         
         # Smoothly move towards target positions
         self.left_pupil_pos = self.smooth_move(self.left_pupil_pos, self.target_left_pos)
@@ -198,13 +161,13 @@ def main():
         results = tracker.face_mesh.process(frame)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         
-        # Get gaze directions if face is detected
+        # Get gaze position if face is detected
         if results.multi_face_landmarks:
-            left_gaze, right_gaze = tracker.get_gaze_direction(frame, results.multi_face_landmarks[0])
-            display.update_pupils(left_gaze, right_gaze)
+            gaze_position = tracker.get_gaze_position(results.multi_face_landmarks[0], frame.shape)
+            display.update_pupils(gaze_position)
         else:
             # Return to center if no face detected
-            display.update_pupils(None, None)
+            display.update_pupils(None)
         
         # Draw the display
         display.draw()
