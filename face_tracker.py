@@ -14,48 +14,10 @@ class EyeTracker:
             min_tracking_confidence=0.75
         )
 
-    def get_gaze_position(self, points, frame_shape):
-        """Calculate the position where the gaze intersects the screen"""
-        # Get both irises
-        left_iris = np.array([[points.landmark[idx].x * frame_shape[1],
-                             points.landmark[idx].y * frame_shape[0]] 
-                             for idx in [469, 470, 471, 472]])
-        right_iris = np.array([[points.landmark[idx].x * frame_shape[1],
-                              points.landmark[idx].y * frame_shape[0]] 
-                              for idx in [474, 475, 476, 477]])
-
-        # Calculate centers of both irises
-        left_center = np.mean(left_iris, axis=0)
-        right_center = np.mean(right_iris, axis=0)
-
-        # Get eye corners for checking if eyes are open
-        left_eye_corners = np.array([[points.landmark[idx].x * frame_shape[1],
-                                    points.landmark[idx].y * frame_shape[0]]
-                                    for idx in [263, 362]])  # Left eye corners
-        right_eye_corners = np.array([[points.landmark[idx].x * frame_shape[1],
-                                     points.landmark[idx].y * frame_shape[0]]
-                                     for idx in [33, 133]])  # Right eye corners
-
-        # Check if eyes are sufficiently open by measuring vertical distance
-        left_eye_height = abs(points.landmark[386].y - points.landmark[374].y)
-        right_eye_height = abs(points.landmark[159].y - points.landmark[145].y)
-        
-        # If eyes are too closed, return None
-        if left_eye_height < 0.01 or right_eye_height < 0.01:
-            return None
-
-        # Use average of both iris positions to determine gaze point
-        gaze_point = np.mean([left_center, right_center], axis=0)
-        
-        # Convert to normalized coordinates (0 to 1)
-        gaze_x = gaze_point[0] / frame_shape[1]
-        gaze_y = gaze_point[1] / frame_shape[0]
-
-        return (gaze_x, gaze_y)
-
 class EyeDisplay:
     def __init__(self, width=800, height=480):
         pygame.init()
+        pygame.mixer.init()
         self.width = width
         self.height = height
         self.screen = pygame.display.set_mode((width, height))
@@ -76,47 +38,75 @@ class EyeDisplay:
         self.target_right_pos = list(self.right_eye_pos)
         self.movement_speed = 0.2
 
-    def calculate_look_direction(self, gaze_position):
-        """Calculate where eyes should look based on gaze position"""
-        if gaze_position is None:
-            return (0, 0), (0, 0)  # Look straight ahead if no gaze detected
+        # Sound system
+        self.sounds = {
+            pygame.K_1: pygame.mixer.Sound('sounds/Book recommendation.mp3'),
+            pygame.K_2: pygame.mixer.Sound('sounds/Excited for christmas.mp3'),
+            pygame.K_3: pygame.mixer.Sound('sounds/Family person.mp3'),
+            pygame.K_4: pygame.mixer.Sound('sounds/Green or red apples.mp3'),
+            pygame.K_5: pygame.mixer.Sound('sounds/Marathon.mp3'),
+            pygame.K_6: pygame.mixer.Sound('sounds/Right or left handed.mp3'),
+            pygame.K_7: pygame.mixer.Sound('sounds/Theme parks.mp3'),
+            pygame.K_8: pygame.mixer.Sound('sounds/Wake up.mp3'),
+            pygame.K_9: pygame.mixer.Sound('sounds/Winter or summer.mp3'),
+        }
+        
+        # Sound timing
+        self.move_delay = 0.5
+        self.sound_delay = 1.5
+        self.last_move_time = 0
+        self.ready_for_sound = False
+        self.selected_key = None
+
+    def calculate_look_direction(self, face_position):
+        """Calculate where eyes should look based on face position in frame"""
+        if face_position is None:
+            return (0, 0), (0, 0)  # Look straight ahead if no face detected
             
-        gaze_x, gaze_y = gaze_position
+        face_x, face_y = face_position
         
-        # Convert gaze position (0 to 1) to eye movement direction (-1 to 1)
-        # Invert the direction so eyes look towards the gaze point
-        x_direction = -(gaze_x - 0.5) * 2
-        #y_direction = (gaze_y - 0.5) * 2
+        x_direction = -(face_x - 0.5) * 2
+        y_direction = (face_y - 0.5) * 2
         
-        # Apply the same direction to both eyes
-        return (x_direction), (x_direction)
+        return (x_direction, y_direction), (x_direction, y_direction)
 
     def smooth_move(self, current_pos, target_pos):
         """Smoothly interpolate between current and target position"""
         return [current_pos[0] + (target_pos[0] - current_pos[0]) * self.movement_speed,
                 current_pos[1] + (target_pos[1] - current_pos[1]) * self.movement_speed]
 
-    def update_pupils(self, gaze_position):
-        # Get eye directions based on gaze position
-        left_dir, right_dir = self.calculate_look_direction(gaze_position)
+    def handle_key_press(self):
+        """Handle key presses for sound playback"""
+        current_time = time.time()
+        keys = pygame.key.get_pressed()
         
-        if gaze_position is None:
-            # Return to center if no gaze detected
-            self.target_left_pos = list(self.left_eye_pos)
-            self.target_right_pos = list(self.right_eye_pos)
-        else:
-            # Calculate target positions
-            left_x, left_y = left_dir
-            right_x, right_y = right_dir
-            
-            self.target_left_pos = [
-                self.left_eye_pos[0] + left_x * self.max_pupil_offset,
-                self.left_eye_pos[1] + left_y * self.max_pupil_offset
-            ]
-            self.target_right_pos = [
-                self.right_eye_pos[0] + right_x * self.max_pupil_offset,
-                self.right_eye_pos[1] + right_y * self.max_pupil_offset
-            ]
+        # Check for key presses
+        for k in self.sounds.keys():
+            if keys[k] and current_time - self.last_move_time > self.move_delay:
+                self.last_move_time = current_time
+                self.ready_for_sound = True
+                self.selected_key = k
+                break
+
+        # Play sound after delay
+        if self.ready_for_sound and current_time - self.last_move_time > self.sound_delay:
+            if self.selected_key and self.selected_key in self.sounds:
+                self.sounds[self.selected_key].play()
+            self.ready_for_sound = False
+
+    def update_pupils(self, face_position):
+        # Get eye directions based on face position
+        left_dir, right_dir = self.calculate_look_direction(face_position)
+        
+        # Calculate target positions
+        self.target_left_pos = [
+            self.left_eye_pos[0] + left_dir[0] * self.max_pupil_offset,
+            self.left_eye_pos[1] + left_dir[1] * self.max_pupil_offset
+        ]
+        self.target_right_pos = [
+            self.right_eye_pos[0] + right_dir[0] * self.max_pupil_offset,
+            self.right_eye_pos[1] + right_dir[1] * self.max_pupil_offset
+        ]
         
         # Smoothly move towards target positions
         self.left_pupil_pos = self.smooth_move(self.left_pupil_pos, self.target_left_pos)
@@ -161,13 +151,16 @@ def main():
         results = tracker.face_mesh.process(frame)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         
-        # Get gaze position if face is detected
+        # Get face position if face is detected
         if results.multi_face_landmarks:
-            gaze_position = tracker.get_gaze_position(results.multi_face_landmarks[0], frame.shape)
-            display.update_pupils(gaze_position)
+            nose_landmark = results.multi_face_landmarks[0].landmark[4]
+            face_position = (nose_landmark.x, nose_landmark.y)
+            display.update_pupils(face_position)
         else:
-            # Return to center if no face detected
             display.update_pupils(None)
+        
+        # Handle key presses and sounds
+        display.handle_key_press()
         
         # Draw the display
         display.draw()
