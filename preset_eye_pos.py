@@ -40,15 +40,15 @@ pupil_positions = {
 
 # Define sounds for each key
 sounds = {
-    pygame.K_1: pygame.mixer.Sound('sounds/Best show watched.mp3'),
-    pygame.K_2: pygame.mixer.Sound('sounds/Favorite fruit.mp3'),
-    pygame.K_3: pygame.mixer.Sound('sounds/Coffee tea or neither.mp3'),
-    pygame.K_4: pygame.mixer.Sound('sounds/Early bird or night owl.mp3'),
-    pygame.K_5: pygame.mixer.Sound('sounds/Favorite emojis.mp3'),
-    pygame.K_6: pygame.mixer.Sound('sounds/Breakfast question.mp3'),
-    pygame.K_7: pygame.mixer.Sound('sounds/Weekend activity.mp3'),
-    pygame.K_8: pygame.mixer.Sound('sounds/New skill.mp3'),
-    pygame.K_9: pygame.mixer.Sound('sounds/Favorite way to relax.mp3'),
+    pygame.K_1: pygame.mixer.Sound('sounds_preset/Best show watched.mp3'),
+    pygame.K_2: pygame.mixer.Sound('sounds_preset/Favorite fruit.mp3'),
+    pygame.K_3: pygame.mixer.Sound('sounds_preset/Coffee tea or neither.mp3'),
+    pygame.K_4: pygame.mixer.Sound('sounds_preset/Early bird or night owl.mp3'),
+    pygame.K_5: pygame.mixer.Sound('sounds_preset/Favorite emojis.mp3'),
+    pygame.K_6: pygame.mixer.Sound('sounds_preset/Breakfast question.mp3'),
+    pygame.K_7: pygame.mixer.Sound('sounds_preset/Weekend activity.mp3'),
+    pygame.K_8: pygame.mixer.Sound('sounds_preset/New skill.mp3'),
+    pygame.K_9: pygame.mixer.Sound('sounds_preset/Favorite way to relax.mp3'),
 }
 
 # Initialize variables for delays
