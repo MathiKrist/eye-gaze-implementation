@@ -1,7 +1,8 @@
 import pygame
 import time
+import math
 
-pygame.init
+pygame.init()
 pygame.mixer.init()
 
 SCREEN_WIDTH = 800
@@ -14,15 +15,15 @@ pupil = pygame.Rect(217,240,40,40)
 
 """ 
 list of all the positions within the eye
-center = (eyes.x + 0, eyes.y + 0),          # Center
-bottom_right = (eyes.x + 50, eyes.y + 50),  # Bottom right
-top_right = (eyes.x + 50, eyes.y -50),      # Top right
-center_right = (eyes.x + 75, eyes.y + 0),   # Center right
-center_top = (eyes.x + 0, eyes.y - 75),     # Center top
-bottom_left = (eyes.x - 50, eyes.y + 50),   # Bottom left
-center_left = (eyes.x - 75, eyes.y + 0),    # Center left
-top_left = (eyes.x - 50, eyes.y - 50),      # Top left
-center_bottom = (eyes.x + 0, eyes.y + 75),  # Center bottom
+(eyes.x + 0, eyes.y + 0),     # Center
+(eyes.x + 50, eyes.y + 50),   # Bottom right
+(eyes.x + 50, eyes.y -50),    # Top right
+(eyes.x + 75, eyes.y + 0),    # Center right
+(eyes.x + 0, eyes.y - 75),    # Center top
+(eyes.x - 50, eyes.y + 50),   # Bottom left
+(eyes.x - 75, eyes.y + 0),    # Center left
+(eyes.x - 50, eyes.y - 50),   # Top left
+(eyes.x + 0, eyes.y + 75),    # Center bottom
 """
 
 # Define predefined positions within the eye
@@ -51,37 +52,59 @@ sounds = {
     pygame.K_9: pygame.mixer.Sound('sounds_preset/Favorite way to relax.mp3'),
 }
 
-# Initialize variables for delays
-move_delay = 0.5  # Delay before moving eyes
-sound_delay = 1.5  # Additional delay after moving before sound plays
-last_move_time = 0
+# Initialize variables for delays and timing
+move_delay = 0.5         # Delay before moving eyes
+sound_delay = 1.5        # Additional delay after moving before sound plays
+last_move_time = time.time()
+last_interaction_time = time.time()
 ready_for_sound = False  # Tracks if sound is ready to play
-selected_key = None  # Track which key was last pressed
+selected_key = None      # Track which key was last pressed
+
+# Idle animation parameters
+IDLE_DELAY = 5.0         # Time in seconds before idle animation starts
+IDLE_RADIUS = 1.25       # Radius of the circular movement in pixels
+IDLE_SPEED = 3.25        # Speed of the circular movement
+
+def get_idle_offset(current_time):
+    """Calculate idle position offset for subtle eye movement"""
+    angle = (current_time * IDLE_SPEED) % (2 * math.pi)
+    offset_x = IDLE_RADIUS * math.cos(angle)
+    offset_y = IDLE_RADIUS * math.sin(angle)
+    return offset_x, offset_y
 
 running = True
 while running:
-
+    current_time = time.time()
     screen.fill((0,0,0))
 
-    # Draw 2 white circles
+    # Handle idle animation when no interaction has occurred recently
+    time_since_interaction = current_time - last_interaction_time
+    if time_since_interaction > IDLE_DELAY:
+        offset_x, offset_y = get_idle_offset(current_time)
+        current_x = pupil.x + offset_x
+        current_y = pupil.y + offset_y
+    else:
+        current_x = pupil.x
+        current_y = pupil.y
+    
+    # Draw 2 white circles (eyes)
     pygame.draw.circle(screen, (255,255,255), (eyes.x + 0, eyes.y + 0), 140) # (x,y) is the center of the circle
     pygame.draw.circle(screen, (255,255,255), (eyes.x + 375, eyes.y + 0), 140)
 
-    # Draw 2 black circles within the white circles
-    pygame.draw.circle(screen, (0,0,0), (pupil.x + 0, pupil.y + 0), 40) 
-    pygame.draw.circle(screen, (0,0,0), (pupil.x + 375, pupil.y + 0), 40)
+    # Draw 2 black circles (pupils) within the white circles
+    pygame.draw.circle(screen, (0,0,0), (current_x + 0, current_y + 0), 40)
+    pygame.draw.circle(screen, (0,0,0), (current_x + 375, current_y + 0), 40)
 
     # Check for key presses and update pupil position
     key = pygame.key.get_pressed()
-    current_time = time.time()
     
     for k in pupil_positions:
         if key[k]:  # If a specific key is pressed
             new_x, new_y = pupil_positions[k]
-            # Move pupil immediately if the required delay has passed
             if current_time - last_move_time > move_delay:
                 pupil.x, pupil.y = new_x, new_y  # Update pupil position
                 last_move_time = current_time  # Reset the last move time
+                last_interaction_time = current_time  # Reset idle timer
                 ready_for_sound = True  # Enable sound delay
                 selected_key = k  # Track which sound to play
                 break
@@ -89,10 +112,10 @@ while running:
     # Play sound after the additional sound delay if movement occurred
     if ready_for_sound and current_time - last_move_time > sound_delay:
         if selected_key and selected_key in sounds:
-            sounds[selected_key].play()  # Play the sound for the selected key
-        ready_for_sound = False  # Reset sound readiness
+            sounds[selected_key].play()
+        ready_for_sound = False
     
-    # update the display
+    # Handle window events
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
