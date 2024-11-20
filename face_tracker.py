@@ -35,7 +35,7 @@ class EyeDisplay:
         # For smooth movement
         self.target_left_pos = list(self.left_eye_pos)
         self.target_right_pos = list(self.right_eye_pos)
-        self.movement_speed = 0.2
+        self.movement_speed = 0.3
 
         # Sound system
         self.sounds = {
