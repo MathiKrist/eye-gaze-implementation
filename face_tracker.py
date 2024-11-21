@@ -37,7 +37,11 @@ class EyeDisplay:
         self.target_right_pos = list(self.right_eye_pos)
         self.movement_speed = 0.3
 
-        # Sound system
+        # Control mode
+        self.manual_control = False
+        self.manual_direction = (0, 0)  # (x, y) direction for manual control
+
+        # Sounds for random questions
         self.sounds = {
             pygame.K_1: pygame.mixer.Sound('sounds_tracker/Book recommendation.mp3'),
             pygame.K_2: pygame.mixer.Sound('sounds_tracker/Excited for christmas.mp3'),
@@ -49,6 +53,32 @@ class EyeDisplay:
             pygame.K_8: pygame.mixer.Sound('sounds_tracker/Wake up.mp3'),
             pygame.K_9: pygame.mixer.Sound('sounds_tracker/Winter or summer.mp3'),
         }
+        """
+        # Sounds for experiment 2 picture 1
+        self.sounds = {
+            pygame.K_1: pygame.mixer.Sound('sounds_picture1/Green apples.mp3'),
+            pygame.K_2: pygame.mixer.Sound('sounds_picture1/Basketballs.mp3'),
+            pygame.K_3: pygame.mixer.Sound('sounds_picture1/Sentence problem.mp3'),
+            pygame.K_4: pygame.mixer.Sound('sounds_picture1/Red apples.mp3'),
+            pygame.K_5: pygame.mixer.Sound('sounds_picture1/Cats.mp3'),
+            pygame.K_6: pygame.mixer.Sound('sounds_picture1/Math problem.mp3'),
+            pygame.K_7: pygame.mixer.Sound('sounds_picture1/Oranges.mp3'),
+            pygame.K_8: pygame.mixer.Sound('sounds_picture1/Dogs.mp3'),
+        }
+        """
+        """
+        # Sounds for experiment 2 picture 2
+        self.sounds = {
+            pygame.K_1: pygame.mixer.Sound('sounds_picture2/Blue circles.mp3'),
+            pygame.K_2: pygame.mixer.Sound('sounds_picture2/Red squares.mp3'),
+            pygame.K_3: pygame.mixer.Sound('sounds_picture2/Math problem.mp3'),
+            pygame.K_4: pygame.mixer.Sound('sounds_picture2/Footballs.mp3'),
+            pygame.K_5: pygame.mixer.Sound('sounds_picture2/Blueberries.mp3'),
+            pygame.K_6: pygame.mixer.Sound('sounds_picture2/Red circles.mp3'),
+            pygame.K_7: pygame.mixer.Sound('sounds_picture2/Sentence problem.mp3'),
+            pygame.K_8: pygame.mixer.Sound('sounds_picture2/Strawberries.mp3'),
+        }
+        """
         
         # Sound timing
         self.move_delay = 0.5
@@ -59,6 +89,9 @@ class EyeDisplay:
 
     def calculate_look_direction(self, face_position):
         """Calculate where eyes should look based on face position in frame"""
+        if self.manual_control:
+            return self.manual_direction, self.manual_direction
+            
         if face_position is None:
             return (0, 0), (0, 0)  # Look straight ahead if no face detected
             
@@ -75,11 +108,22 @@ class EyeDisplay:
                 current_pos[1] + (target_pos[1] - current_pos[1]) * self.movement_speed]
 
     def handle_key_press(self):
-        """Handle key presses for sound playback"""
+        """Handle key presses for sound playback and manual control"""
         current_time = time.time()
         keys = pygame.key.get_pressed()
         
-        # Check for key presses
+        # Handle arrow key controls
+        if keys[pygame.K_LEFT]:
+            self.manual_control = True
+            self.manual_direction = (-1, 0)
+        elif keys[pygame.K_RIGHT]:
+            self.manual_control = True
+            self.manual_direction = (1, 0)
+        elif keys[pygame.K_DOWN]:
+            self.manual_control = False
+            self.manual_direction = (0, 0)
+        
+        # Check for sound trigger keys
         for k in self.sounds.keys():
             if keys[k] and current_time - self.last_move_time > self.move_delay:
                 self.last_move_time = current_time
@@ -94,7 +138,7 @@ class EyeDisplay:
             self.ready_for_sound = False
 
     def update_pupils(self, face_position):
-        # Get eye directions based on face position
+        # Get eye directions based on face position or manual control
         left_dir, right_dir = self.calculate_look_direction(face_position)
         
         # Calculate target positions
@@ -150,8 +194,8 @@ def main():
         results = tracker.face_mesh.process(frame)
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         
-        # Get face position if face is detected
-        if results.multi_face_landmarks:
+        # Get face position if face is detected and not in manual control
+        if results.multi_face_landmarks and not display.manual_control:
             nose_landmark = results.multi_face_landmarks[0].landmark[4]
             face_position = (nose_landmark.x, nose_landmark.y)
             display.update_pupils(face_position)
