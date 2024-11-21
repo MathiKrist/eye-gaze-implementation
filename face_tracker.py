@@ -122,6 +122,9 @@ class EyeDisplay:
         elif keys[pygame.K_DOWN]:
             self.manual_control = False
             self.manual_direction = (0, 0)
+        elif keys[pygame.K_UP]:
+            self.manual_control = True
+            self.manual_direction = (0, 0)
         
         # Check for sound trigger keys
         for k in self.sounds.keys():
