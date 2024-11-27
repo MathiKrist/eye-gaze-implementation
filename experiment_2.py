@@ -12,7 +12,7 @@ class EyeSystem:
     - Face tracking in both conditions
     - Manual control with arrow keys
     - Two different sound sets for different conditions
-    - Dead stare functionality
+    - Dead stare functionality (if needed)
     
     Controls:
     - 'o': Switch to Condition 1
