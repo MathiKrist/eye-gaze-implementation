@@ -16,7 +16,7 @@ class EyeSystem:
     def __init__(self, width=800, height=480):
         # Initialize core systems
         pygame.init()
-        pygame.mixer.init()  # Required for sound playback
+        pygame.mixer.init()             # Required for sound playback
         self.cap = cv2.VideoCapture(0)  # Initialize webcam capture
         
         # Screen setup - optimized for 800x480 display
@@ -28,19 +28,19 @@ class EyeSystem:
         self.face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
         
         # Eye appearance parameters
-        self.eye_radius = 140  # Size of the white part of the eye
-        self.pupil_radius = 40  # Size of the black pupil
+        self.eye_radius = 140       # Size of the white part of the eye
+        self.pupil_radius = 40      # Size of the black pupil
         self.max_pupil_offset = 75  # Maximum distance pupil can move from center
         
         # Define base positions for eyes and pupils
-        self.left_eye_pos = (217, 240)  # Center position of left eye
-        self.right_eye_pos = (217 + 375, 240)  # Center position of right eye (375px offset)
-        self.left_pupil_pos = list(self.left_eye_pos)  # Current position of left pupil
+        self.left_eye_pos = (217, 240)                   # Center position of left eye
+        self.right_eye_pos = (217 + 375, 240)            # Center position of right eye (375px offset)
+        self.left_pupil_pos = list(self.left_eye_pos)    # Current position of left pupil
         self.right_pupil_pos = list(self.right_eye_pos)  # Current position of right pupil
         
         # Mode settings
         self.current_condition = 1  # Start with condition 1 (preset positions)
-        self.movement_speed = 0.3  # Speed of pupil movement (0-1)
+        self.movement_speed = 0.3   # Speed of pupil movement (0-1)
         
         # Define preset positions for condition 1
         # Each position is relative to the left eye center
@@ -84,17 +84,17 @@ class EyeSystem:
         }
         
         # Timing control variables
-        self.move_delay = 0.5  # Delay before movement starts
-        self.sound_delay = 1.5  # Delay before sound plays after movement
-        self.last_move_time = 0  # Timestamp of last movement
+        self.move_delay = 0.5                     # Delay before movement starts
+        self.sound_delay = 1.5                    # Delay before sound plays after movement
+        self.last_move_time = 0                   # Timestamp of last movement
         self.last_interaction_time = time.time()  # Used for idle animation
-        self.ready_for_sound = False  # Flag indicating sound can be played
-        self.selected_key = None  # Currently selected sound key
+        self.ready_for_sound = False              # Flag indicating sound can be played
+        self.selected_key = None                  # Currently selected sound key
         
         # Idle animation settings (used in condition 1)
-        self.IDLE_DELAY = 5.0  # Time before idle animation starts (seconds)
+        self.IDLE_DELAY = 5.0    # Time before idle animation starts (seconds)
         self.IDLE_RADIUS = 1.25  # Size of idle movement circle
-        self.IDLE_SPEED = 3.25  # Speed of idle animation
+        self.IDLE_SPEED = 3.25   # Speed of idle animation
 
     def get_idle_offset(self, current_time):
         """
@@ -132,7 +132,7 @@ class EyeSystem:
         keys = pygame.key.get_pressed()
         
         # Mode switching logic
-        if keys[pygame.K_o]:  # Switch to condition 1 (preset positions)
+        if keys[pygame.K_o]:    # Switch to condition 1 (preset positions)
             self.current_condition = 1
             print("Switched to Condition 1: Preset Positions")
         elif keys[pygame.K_t]:  # Switch to condition 2 (face tracking)
