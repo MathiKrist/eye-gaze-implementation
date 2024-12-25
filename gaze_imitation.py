@@ -119,7 +119,7 @@ class EyeDisplay:
         #Horizontal movement
         avg_gaze_x = -(left_gaze[0] + right_gaze[0]) / 2  # Negative to mirror the direction
         #Vertical movement
-        #avg_gaze_y = (left_gaze[1] + right_gaze[1]) / 2  # Negative to mirror the direction
+        avg_gaze_y = (left_gaze[1] + right_gaze[1]) / 2  # Positive to not mirror the direction
         
         # Define thresholds for different directions
         threshold = 0.1
@@ -130,8 +130,8 @@ class EyeDisplay:
         
         if abs(avg_gaze_x) > threshold:
             x_direction = np.sign(avg_gaze_x)
-        #if abs(avg_gaze_y) > threshold:
-        #    y_direction = np.sign(avg_gaze_y)
+        if abs(avg_gaze_y) > threshold:
+            y_direction = np.sign(avg_gaze_y)
             
         return (x_direction, y_direction), (x_direction, y_direction)
 
